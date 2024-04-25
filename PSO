@@ -1,0 +1,236 @@
+from random import randint,uniform
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.model_selection import train_test_split
+from sklearn import metrics
+
+def vectorSubtraction(vet1, vet2):
+    vetorResultante = []
+    for i in range(len(vet1)):
+        vetorResultante.append(round(vet1[i] - vet2[i],1)) 
+    return vetorResultante
+
+def vectorAddition(vet1, vet2, vet3):
+    vetorResultante = []
+    for i in range(len(vet1)):
+        vetorResultante.append(round(vet1[i] + vet2[i] + vet3[i],1)) 
+    return vetorResultante
+
+def vectorMultiplication(vet1, const):
+    vetorResultante = []
+    for i in range(len(vet1)):
+        vetorResultante.append(round(vet1[i] * const,1)) 
+    return vetorResultante
+
+class PSO:
+    def __init__(self, numIter, tamEnx, dbname, version):
+        self.numIter = numIter
+        self.tamEnx = tamEnx
+        self.version = version
+        self.enx = []
+        self.melhorLocGer = None
+        self.melhorDesger = None
+        self.file = dbname
+
+    def primeiroMovimento(self):
+        if self.version == 1:
+            return [randint(3,20),randint(0,2),round(uniform(0.1,0.3),5)]
+        
+        if self.version == 2:
+            return [randint(1,20), randint(0,1)]
+        
+        if self.version == 3:
+            return [randint(3, 200),randint(3,20),randint(0,2),round(uniform(0.1,0.3),5)]
+        
+        if self.version == 4:
+            return [round(uniform(0.1,1),4),randint(0,3)]
+        
+    def posicaoZero(self):
+        if self.version == 1:
+            return [9, 1, 0.5]
+        
+        if self.version == 2:
+            return [10, 0]
+        
+        if self.version == 3:
+            return [ 99, 9, 1, 0.5]
+        
+        if self.version == 4:
+            return [0.5, 2]
+        
+    def gerarParticula(self):
+        primeiroMovimento = self.primeiroMovimento()
+        posicaoZero = self.posicaoZero()
+        velocidade = vectorSubtraction(primeiroMovimento, posicaoZero)
+        return particula(velocidade, primeiroMovimento)
+
+    def gerarEnxame(self):
+        for _ in range(self.numIter):
+            p = self.gerarParticula()
+            p.desempenhoAt = self.avaliacao(p.posicaoAt)
+            p.melhorLoc = p.posicaoAt
+            p.melhorDes = self.avaliacao(p.melhorLoc)
+            self.melhor(p)
+            self.enx.append(p)
+
+    def limite(self, particula):
+        if self.version == 1:
+            if particula[0] > 20:
+                particula[0] = 20
+            if particula[0] < 3:
+                particula[0] = 3
+            
+            if particula[1] > 2:
+                particula[1] = 2
+            if particula[1] < 0:
+                particula[1] = 0
+            
+            if particula[2] > 0.3:
+                particula[2] = 0.3
+            if particula[2] < 0.1:
+                particula[2] = 0.1
+
+        
+        if self.version == 2:
+            if particula[0] > 20:
+                particula[0] = 20
+            if particula[0] < 1:
+                particula[0] = 1
+            
+            if particula[1] > 1:
+                particula[1] = 1
+            if particula[1] < 0:
+                particula[1] = 0
+    
+        if self.version == 3:
+            if particula[0] > 200:
+                particula[0] = 200
+            if particula[0] < 3:
+                particula[0] = 3
+
+            if particula[1] > 20:
+                particula[1] = 20
+            if particula[1] < 3:
+                particula[1] = 3
+            
+            if particula[2] > 2:
+                particula[2] = 2
+            if particula[2] < 0:
+                particula[2] = 0
+            
+            if particula[3] > 0.3:
+                particula[3] = 0.3
+            if particula[3] < 0.1:
+                particula[3] = 0.1
+        
+        if self.version == 4:
+            if particula[0] > 1:
+                particula[0] = 1
+            if particula[0] < 0.1:
+                particula[0] = 0.1
+            
+            if particula[1] > 3:
+                particula[1] = 3
+            if particula[1] < 0:
+                particula[1] = 0
+ 
+    def generateModel(self):
+        self.data = pd.read_csv(self.file)
+        self.columns = self.data.columns.tolist()
+        y = self.data[self.data.columns[-1]]
+        self.columns.pop()
+        x = self.data[self.columns]
+        self.x_treino, self.x_teste, self.y_treino, self.y_teste = train_test_split(x,y,test_size=0.3,random_state=1)
+    
+    def avaliacao(self, particula):
+        if self.version == 1:
+            dicionario = {0: 'gini',1: 'entropy',2:'log_loss'}
+            self.tree = DecisionTreeClassifier(max_depth=round(particula[0]),criterion=dicionario[round(particula[1])],min_samples_split=particula[2])
+            self.tree.fit(self.x_treino, self.y_treino)
+            previsao = self.tree.predict(self.x_teste)
+            accuracy = metrics.accuracy_score(self.y_teste, previsao)
+            return accuracy
+        
+        if self.version == 2:
+            dicionario = {0: 'uniform', 1: 'distance'}
+            self.knn = KNeighborsClassifier(n_neighbors=round(particula[0]), weights=dicionario[round(particula[1])])
+            self.knn.fit(self.x_treino, self.y_treino)
+            previsao = self.knn.predict(self.x_teste)
+            accuracy = metrics.accuracy_score(self.y_teste, previsao)
+            return accuracy
+        
+        if self.version == 3:
+            dicionario = {0: 'gini', 1: 'entropy', 2: 'log_loss'}
+            self.rf = RandomForestClassifier(n_estimators=round(particula[0]), max_depth=round(particula[1]), criterion=dicionario[round(particula[2])], min_samples_split=particula[3])
+            self.rf.fit(self.x_treino, self.y_treino)
+            previsao = self.rf.predict(self.x_teste)
+            accuracy = metrics.accuracy_score(self.y_teste, previsao)
+            return accuracy
+        
+        if self.version == 4:
+            dicionario = {0:'linear', 1: 'poly', 2: 'rbf', 3:'sigmoid'}
+            self.svm = SVC(C = particula[0], kernel=dicionario[round(particula[1])])
+            self.svm.fit(self.x_treino, self.y_treino)
+            previsao = self.svm.predict(self.x_teste)
+            accuracy = metrics.accuracy_score(self.y_teste, previsao)
+            return accuracy
+    
+    def melhor(self, particula):
+        if self.melhorLocGer == None or self.avaliacao(particula.posicaoAt) > self.avaliacao(self.melhorLocGer):
+            self.melhorLocGer = particula.posicaoAt[:]
+            self.melhorDesger = self.avaliacao(self.melhorLocGer)
+    
+    def executar(self):
+        self.generateModel()
+        with open('resultado.txt','w') as saida:
+            self.gerarEnxame()
+            for i in range(self.tamEnx):
+                print(f"Partícula {i+1}-------------------------",file=saida)
+                print(self.enx[i],file=saida)
+
+            for i in range(self.numIter - 1):
+                for i in range(self.tamEnx):
+                    self.enx[i].proximaVelocidade(self.melhorLocGer)
+                    self.limite(self.enx[i].posicaoAt)
+                    self.enx[i].desempenhoAt = self.avaliacao(self.enx[i].posicaoAt)
+                    if self.avaliacao(self.enx[i].posicaoAt) > self.avaliacao(self.enx[i].melhorLoc):
+                        self.enx[i].melhorLoc = self.enx[i].posicaoAt[:]
+                        self.enx[i].melhorDes = self.avaliacao(self.enx[i].posicaoAt)
+                    self.melhor(self.enx[i])
+                    print(f"Partícula {i+1}-------------------------",file=saida)
+                    print(self.enx[i],file=saida)
+
+        
+            print(self.melhorLocGer,file=saida)
+            print(self.melhorDesger,file=saida)
+
+
+
+class particula:
+    def __init__(self, velocidade, posicaoAt):
+        self.velocidade = velocidade
+        self.posicaoAt = posicaoAt
+        self.desempenhoAt = None
+        self.melhorLoc = None
+        self.melhorDes = None
+        self.c1 = uniform(0, 2)
+        self.c2 = uniform(0, 2)
+    
+    def proximaVelocidade(self, melhorLocGer):
+        self.velocidade = vectorAddition(self.velocidade, vectorMultiplication(vectorSubtraction(self.melhorLoc,self.posicaoAt),self.c1),vectorMultiplication(vectorSubtraction(melhorLocGer,self.posicaoAt),self.c2))
+        self.posicaoAt = vectorAddition(self.posicaoAt, self.velocidade, [0,0,0,0])
+    def __str__(self):
+        return f"Posição Atual: {self.posicaoAt}\nVelocidade: {self.velocidade}\nDesempenho: {self.desempenhoAt}\n-------------------------------------"
+
+if __name__ == '__main__' :
+    print("Selecione os parêmetros que serão inseridos no algorítmo PSO:")
+    tamEnxa = int(input("Número de partículas: "))
+    numItera = int(input("Número de Iterações: "))
+    dbNamee = input("Nome do arquivo (lembre-se de por .csv no final): ")
+    versionn = int(input("Digite se deseja utilizar 1-DecisionTree/2-KNN/3-RandomForest: "))
+    teste = PSO(tamEnx=tamEnxa, numIter=numItera, dbname=dbNamee, version=versionn)
+
+    teste.executar()
